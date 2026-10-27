@@ -1,0 +1,41 @@
+name: Feature
+description: Something new the game should do
+labels: ["type: feature"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What
+      description: The change, in a sentence or two.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: The player or project problem this solves.
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: Acceptance criteria as a checklist. Specific enough that someone else could verify it.
+      value: |
+        - [ ] 
+        - [ ] Works in English and Spanish
+        - [ ] `npm run typecheck`, `npm test`, and `npm run build` pass
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Who works on it
+      options:
+        - Claude can solo it
+        - Duo (needs decisions or input along the way)
+        - Nordiel only (accounts, dashboards, money, content judgment)
+        - Not sure yet
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Links, files, roadmap sections, mockups.
