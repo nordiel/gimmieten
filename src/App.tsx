@@ -126,6 +126,7 @@ export default function App() {
               onAbandon={game.endSession}
               onOpenProgress={() => setView('progress')}
               onParty={() => navigate('/party')}
+              onGetJudged={() => navigate('/party?format=judged')}
             />
           )}
         </main>

@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, Flame, Hand, Layers, Mic, PartyPopper, Search, Shuffle, Sparkles } from 'lucide-react';
+import { ArrowRight, BookOpen, Flame, Gavel, Hand, Layers, Mic, PartyPopper, Search, Shuffle, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { ConfirmInline } from '../components/ConfirmInline';
 import { StatTile } from '../components/StatTile';
@@ -20,6 +20,7 @@ interface HomePageProps {
   onAbandon: () => void;
   onOpenProgress: () => void;
   onParty: () => void;
+  onGetJudged: () => void;
 }
 
 const STEP_ICONS = [Shuffle, Search, Mic, Sparkles];
@@ -35,6 +36,7 @@ export function HomePage({
   onAbandon,
   onOpenProgress,
   onParty,
+  onGetJudged,
 }: HomePageProps) {
   const { t, locale } = useI18n();
   const [confirmAbandon, setConfirmAbandon] = useState(false);
@@ -97,11 +99,19 @@ export function HomePage({
             </p>
           </div>
         )}
-        <div className="mt-8 flex flex-col items-center gap-1">
-          <Button variant="ghost" onClick={onParty} icon={<PartyPopper className="h-4 w-4" aria-hidden="true" />}>
-            {t.party.entry}
-          </Button>
-          <p className="text-xs text-mute">{t.party.entryHelp}</p>
+        <div className="mt-8 grid gap-4 sm:mx-auto sm:max-w-xl sm:grid-cols-2">
+          <div className="flex flex-col items-center gap-1">
+            <Button variant="ghost" onClick={onGetJudged} icon={<Gavel className="h-4 w-4" aria-hidden="true" />}>
+              {t.party.getJudged}
+            </Button>
+            <p className="text-xs text-mute">{t.party.getJudgedHelp}</p>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <Button variant="ghost" onClick={onParty} icon={<PartyPopper className="h-4 w-4" aria-hidden="true" />}>
+              {t.party.entry}
+            </Button>
+            <p className="text-xs text-mute">{t.party.entryHelp}</p>
+          </div>
         </div>
       </section>
 

@@ -39,6 +39,7 @@ export function PartyRoom({ roomId, myId, completedTopicIds }: PartyRoomProps) {
     me: players.find((p) => p.userId === myId),
     isHost: room.hostId === myId,
     active: players.filter((p) => p.role === 'player'),
+    raters: players.filter((p) => p.role !== 'spectator'),
     nameOf: (id) => players.find((p) => p.userId === id)?.nickname ?? '?',
     act,
     busy,

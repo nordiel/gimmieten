@@ -1,4 +1,4 @@
-import { BotOff, CheckCircle2, Dices, Flag, Mic, SkipForward } from 'lucide-react';
+import { BotOff, CheckCircle2, Dices, Flag, Gavel, Mic, SkipForward } from 'lucide-react';
 import { useState } from 'react';
 import { PartyError, finishTurn, markDone, skipTopic, startTurn, submitRating } from '../../api/party';
 import { CategoryBadge } from '../../components/CategoryBadge';
@@ -35,9 +35,17 @@ function TopicHeading({ topicId, size = 'lg' }: { topicId: string | undefined; s
   );
 }
 
-function Spectating() {
+/** What a non-speaker sees while the speakers get their topics and research. */
+function NotSpeaking({ ctx }: { ctx: PartyContext }) {
   const { t } = useI18n();
-  return <p className="text-center text-mute">{t.party.spectating}</p>;
+  if (ctx.me?.role !== 'judge') return <p className="text-center text-mute">{t.party.spectating}</p>;
+  return (
+    <Card className="p-6 text-center sm:p-8">
+      <Gavel className="mx-auto h-10 w-10 text-lime" aria-hidden="true" />
+      <p className="mt-4 font-display text-2xl font-bold">{t.party.judgeRole}</p>
+      <p className="mt-2 text-mute">{t.party.judgeResearching(ctx.active.map((p) => p.nickname))}</p>
+    </Card>
+  );
 }
 
 /** "3 of 5 ready", or a waiting note once I'm done. */
@@ -85,7 +93,7 @@ export function Reveal({ ctx }: { ctx: PartyContext }) {
     <div className="mx-auto max-w-2xl space-y-6">
       <PhaseCountdown endsAtLocal={endsAtLocal} format={t.party.researchStartsIn} />
       {me?.role !== 'player' ? (
-        <Spectating />
+        <NotSpeaking ctx={ctx} />
       ) : (
         <>
           <Card glow className="p-6 sm:p-8">
@@ -166,8 +174,8 @@ export function Research({ ctx }: { ctx: PartyContext }) {
   if (me?.role !== 'player') {
     return (
       <div className="mx-auto max-w-md space-y-6">
+        <NotSpeaking ctx={ctx} />
         {timer}
-        <Spectating />
       </div>
     );
   }
@@ -354,7 +362,7 @@ export function Judging({ ctx }: { ctx: PartyContext }) {
   const [ratings, setRatings] = useState<Partial<PartyRatings>>({});
   const complete = PARTY_CRITERIA.every((c) => ratings[c] !== undefined);
   const copy = isSpeaker ? t.party.selfCriteria : t.party.criteria;
-  const canRate = me?.role === 'player' && !state.ratedCurrentTurn;
+  const canRate = (me?.role === 'player' || me?.role === 'judge') && !state.ratedCurrentTurn;
 
   const submit = () => {
     if (!complete) return;
@@ -372,8 +380,8 @@ export function Judging({ ctx }: { ctx: PartyContext }) {
         </div>
       </header>
 
-      {me?.role !== 'player' ? (
-        <Spectating />
+      {me?.role === 'spectator' ? (
+        <p className="text-center text-mute">{t.party.spectating}</p>
       ) : canRate ? (
         <Card className="space-y-8 p-6 sm:p-8">
           {PARTY_CRITERIA.map((c: PartyCriterion) => (
@@ -398,7 +406,7 @@ export function Judging({ ctx }: { ctx: PartyContext }) {
       )}
 
       <p className="text-center text-sm text-mute" aria-live="polite">
-        {t.party.judgedCount(room.ratingsCount, ctx.active.length)}
+        {t.party.judgedCount(room.ratingsCount, ctx.raters.length)}
       </p>
     </div>
   );

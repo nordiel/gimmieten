@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { getTopic } from '../../data/topics';
 import { localize, useI18n } from '../../i18n';
-import { roundAwards, scoreRound, type AwardKind, type PartyRating, type SpeakerScore } from '../../lib/party';
+import { PARTY_CRITERIA, roundAwards, scoreRound, type AwardKind, type PartyRating, type SpeakerScore } from '../../lib/party';
 import { ErrorBanner, PlayerName, startRound, type PartyContext } from './shared';
 
 const AWARD_EMOJI: Record<AwardKind, string> = {
@@ -35,6 +35,8 @@ export function Results({ ctx }: { ctx: PartyContext }) {
 
   const scores = ratings ? scoreRound(room.speakingOrder, ratings) : null;
   const awards = scores ? roundAwards(scores) : [];
+  // Awards are a contest; with one speaker there's nobody to compare against.
+  const soloSpeaker = room.speakingOrder.length === 1;
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
@@ -52,28 +54,30 @@ export function Results({ ctx }: { ctx: PartyContext }) {
 
       {scores && (
         <>
-          <Card as="section" className="p-6 sm:p-8" aria-labelledby="awards-heading">
-            <h3 id="awards-heading" className="text-2xl font-bold">
-              {t.party.awardsTitle}
-            </h3>
-            {awards.length === 0 ? (
-              <p className="mt-3 text-mute">{t.party.noAwards}</p>
-            ) : (
-              <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-                {awards.map((award) => (
-                  <li key={award.kind} className="flex items-center gap-3 rounded-2xl border border-lime/30 bg-lime/5 px-4 py-3">
-                    <span className="text-3xl" aria-hidden="true">
-                      {AWARD_EMOJI[award.kind]}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block font-display font-bold text-lime">{t.party.awards[award.kind]}</span>
-                      <span className="block truncate text-bone">{award.playerIds.map(ctx.nameOf).join(', ')}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
+          {!soloSpeaker && (
+            <Card as="section" className="p-6 sm:p-8" aria-labelledby="awards-heading">
+              <h3 id="awards-heading" className="text-2xl font-bold">
+                {t.party.awardsTitle}
+              </h3>
+              {awards.length === 0 ? (
+                <p className="mt-3 text-mute">{t.party.noAwards}</p>
+              ) : (
+                <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {awards.map((award) => (
+                    <li key={award.kind} className="flex items-center gap-3 rounded-2xl border border-lime/30 bg-lime/5 px-4 py-3">
+                      <span className="text-3xl" aria-hidden="true">
+                        {AWARD_EMOJI[award.kind]}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block font-display font-bold text-lime">{t.party.awards[award.kind]}</span>
+                        <span className="block truncate text-bone">{award.playerIds.map(ctx.nameOf).join(', ')}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
 
           <ul className="space-y-3">
             {scores.map((score) => (
@@ -121,6 +125,18 @@ function ScoreRow({ ctx, score }: { ctx: PartyContext; score: SpeakerScore }) {
           <Score label={t.party.selfScore} value={score.selfScore} />
         </div>
       </div>
+      {score.judges > 0 && (
+        <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-ink-600 pt-4">
+          {PARTY_CRITERIA.map((c) => (
+            <div key={c} className="min-w-0">
+              <dt className="truncate text-xs text-mute">{t.party.criteria[c].label}</dt>
+              <dd className="tabular font-mono text-lg font-bold text-bone">
+                {score.criteria[c] === null ? '–' : t.party.outOfFive(score.criteria[c]!.toFixed(1))}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
       {isMe && score.gap !== null && (
         <p className="mt-4 border-t border-ink-600 pt-4 text-bone">
           {score.gap < 0 ? t.party.underrated(-score.gap) : score.gap > 0 ? t.party.overrated(score.gap) : t.party.spotOn}

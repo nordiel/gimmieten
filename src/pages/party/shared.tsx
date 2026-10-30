@@ -12,8 +12,10 @@ export interface PartyContext {
   myId: string;
   me: RoomPlayer | undefined;
   isHost: boolean;
-  /** Players taking part this round (not spectators). */
+  /** Speakers this round: they research, explain, and judge the others. */
   active: RoomPlayer[];
+  /** Everyone who rates: speakers and judges, not spectators. */
+  raters: RoomPlayer[];
   nameOf: (userId: string) => string;
   act: (action: () => Promise<unknown>) => Promise<void>;
   busy: boolean;
@@ -87,7 +89,8 @@ export function PhaseCountdown({ endsAtLocal, format }: { endsAtLocal: number | 
 export function startRound(ctx: PartyContext, force = false): Promise<void> {
   const { room, players, previousTopicIds } = ctx.state;
   const topics = dealTopics({
-    playerIds: players.map((p) => p.userId),
+    // Judges never get a topic. Spectators may: the server ignores extras.
+    playerIds: players.filter((p) => p.role !== 'judge').map((p) => p.userId),
     topics: TOPICS,
     settings: { topicMode: room.topicMode, category: room.category },
     completedByPlayer: Object.fromEntries(

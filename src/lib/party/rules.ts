@@ -5,6 +5,12 @@ import type { CategoryId } from '../../types';
 
 export type TopicMode = 'own' | 'shared';
 
+/** 'party': everyone speaks. 'judged': only the host speaks; everyone else judges. */
+export type RoomFormat = 'party' | 'judged';
+
+/** Speakers research, explain, and judge the others; judges only rate. */
+export type PartyRole = 'player' | 'judge' | 'spectator';
+
 export type PartyPhase = 'lobby' | 'reveal' | 'research' | 'order' | 'upnext' | 'speaking' | 'judging' | 'results';
 
 export type PartyExplainMinutes = 1 | 2;
