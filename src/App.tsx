@@ -3,10 +3,13 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Logo } from './components/Logo';
 import { SessionAlerts } from './components/SessionAlerts';
 import { useGameState } from './hooks/useGameState';
+import { useRoute } from './hooks/useRoute';
 import { I18nProvider, MESSAGES } from './i18n';
 import { setBaseTitle } from './lib/alerts';
+import { navigate } from './lib/route';
 import { ChallengePage } from './pages/ChallengePage';
 import { HomePage } from './pages/HomePage';
+import { PartyPage } from './pages/party/PartyPage';
 import { ProgressPage } from './pages/ProgressPage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -16,6 +19,7 @@ const AUTHOR_URL = 'https://nordiel.com';
 
 export default function App() {
   const game = useGameState();
+  const route = useRoute();
   const { session } = game;
   const { locale } = game.prefs;
   const t = MESSAGES[locale];
@@ -26,7 +30,7 @@ export default function App() {
   useEffect(() => {
     window.scrollTo({ top: 0 });
     mainRef.current?.focus({ preventScroll: true });
-  }, [view, session?.phase]);
+  }, [view, session?.phase, route]);
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -38,28 +42,37 @@ export default function App() {
     if (view !== 'challenge' && session?.savedAt) game.endSession();
   }, [view, session?.savedAt, game.endSession]);
 
+  const completedTopicIds = useMemo(() => game.history.map((h) => h.topicId), [game.history]);
+  const inParty = route.name === 'party';
+
+  /** Switch views, leaving /party if we're there. */
+  const show = (next: View) => {
+    if (inParty) navigate('/');
+    setView(next);
+  };
+
   const recent = useMemo(() => [...game.history].reverse().slice(0, 3), [game.history]);
 
   const start = () => {
     game.newChallenge();
-    setView('challenge');
+    show('challenge');
   };
 
   const goHome = () => {
     game.endSession();
-    setView('home');
+    show('home');
   };
 
   const hasActive = session !== null && session.savedAt === null;
-  const playOrResume = () => (hasActive ? setView('challenge') : start());
-  const showChallenge = view === 'challenge' && session !== null;
+  const playOrResume = () => (hasActive ? show('challenge') : start());
+  const showChallenge = !inParty && view === 'challenge' && session !== null;
 
   return (
     <I18nProvider locale={locale}>
       <SessionAlerts session={session} alerts={{ sound: game.prefs.sound, notify: game.prefs.notify }} />
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 sm:px-8">
         <header className="flex items-center justify-between gap-2 py-5 sm:py-8">
-          <button type="button" onClick={() => setView('home')} className="shrink-0 rounded-lg" aria-label={t.nav.home}>
+          <button type="button" onClick={() => show('home')} className="shrink-0 rounded-lg" aria-label={t.nav.home}>
             <Logo />
           </button>
           <nav className="flex items-center gap-1" aria-label={t.nav.main}>
@@ -67,12 +80,12 @@ export default function App() {
               <Hand className="h-4 w-4" aria-hidden="true" />
               <span>{hasActive ? t.nav.resume : t.nav.play}</span>
             </NavButton>
-            <NavButton active={view === 'progress'} onClick={() => setView('progress')}>
+            <NavButton active={!inParty && view === 'progress'} onClick={() => show('progress')}>
               <BarChart3 className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">{t.nav.progress}</span>
               <span className="sr-only sm:hidden">{t.nav.progress}</span>
             </NavButton>
-            <NavButton active={view === 'settings'} onClick={() => setView('settings')}>
+            <NavButton active={!inParty && view === 'settings'} onClick={() => show('settings')}>
               <Settings className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">{t.nav.settings}</span>
               <span className="sr-only sm:hidden">{t.nav.settings}</span>
@@ -81,7 +94,9 @@ export default function App() {
         </header>
 
         <main ref={mainRef} tabIndex={-1} className="flex-1 outline-none focus-visible:ring-0">
-          {showChallenge ? (
+          {inParty ? (
+            <PartyPage code={route.code} completedTopicIds={completedTopicIds} />
+          ) : showChallenge ? (
             <ChallengePage
               session={session}
               alerts={{ sound: game.prefs.sound, notify: game.prefs.notify }}
@@ -110,6 +125,7 @@ export default function App() {
               onResume={() => setView('challenge')}
               onAbandon={game.endSession}
               onOpenProgress={() => setView('progress')}
+              onParty={() => navigate('/party')}
             />
           )}
         </main>
