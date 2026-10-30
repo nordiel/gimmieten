@@ -53,10 +53,17 @@ function nicknameKey(nickname: string): string {
 export interface LobbyPlayer {
   id: string;
   ready: boolean;
+  /** False for someone who only judges. Defaults to true. */
+  speaks?: boolean;
 }
 
-/** Whether the host can start: enough players and everyone ready (unless forcing an early start). */
+/**
+ * Whether the host can start: someone to speak, someone else to judge them,
+ * and everyone ready (unless forcing an early start, which only counts the
+ * ready players).
+ */
 export function canStart(players: LobbyPlayer[], force = false): boolean {
-  if (players.length < MIN_PLAYERS) return false;
-  return force || players.every((p) => p.ready);
+  if (!force && !players.every((p) => p.ready)) return false;
+  const taking = force ? players.filter((p) => p.ready) : players;
+  return taking.length >= MIN_PLAYERS && taking.some((p) => p.speaks !== false);
 }

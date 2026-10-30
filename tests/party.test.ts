@@ -69,11 +69,21 @@ describe('lobby', () => {
     assert.deepEqual(validateNickname('jose', ['José']), { ok: false, error: 'taken' });
   });
 
-  it('starts with 2+ players when everyone is ready, or early when forced', () => {
+  it('starts with 2+ players when everyone is ready, or early with 2+ ready when forced', () => {
     assert.equal(canStart([{ id: 'a', ready: true }]), false);
     assert.equal(canStart([{ id: 'a', ready: true }, { id: 'b', ready: false }]), false);
-    assert.equal(canStart([{ id: 'a', ready: true }, { id: 'b', ready: false }], true), true);
+    // Forcing drops b to spectator, leaving one player: the server refuses that too.
+    assert.equal(canStart([{ id: 'a', ready: true }, { id: 'b', ready: false }], true), false);
+    assert.equal(canStart([{ id: 'a', ready: true }, { id: 'b', ready: true }, { id: 'c', ready: false }], true), true);
     assert.equal(canStart([{ id: 'a', ready: true }, { id: 'b', ready: true }]), true);
+  });
+
+  it('needs at least one speaker; judges count toward the two', () => {
+    const speaker = { id: 'a', ready: true };
+    const judge = { id: 'b', ready: true, speaks: false };
+    assert.equal(canStart([speaker, judge]), true);
+    assert.equal(canStart([{ ...speaker, speaks: false }, judge]), false);
+    assert.equal(canStart([speaker, { ...judge, ready: false }], true), false);
   });
 });
 

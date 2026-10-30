@@ -1,11 +1,11 @@
-import { ArrowLeft, LogIn, PartyPopper, Users } from 'lucide-react';
+import { ArrowLeft, Gavel, LogIn, PartyPopper, Users } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { PartyError, createRoom, ensureSession, joinRoom, peekRoom, type RoomPeek } from '../../api/party';
 import { isBackendConfigured } from '../../api/supabase';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { useI18n } from '../../i18n';
-import { normalizeRoomCode, validateNickname } from '../../lib/party';
+import { normalizeRoomCode, validateNickname, type RoomFormat } from '../../lib/party';
 import { navigate } from '../../lib/route';
 import { PartyRoom } from './PartyRoom';
 import { ErrorBanner } from './shared';
@@ -79,6 +79,10 @@ function PartySession({ code, completedTopicIds }: PartyPageProps) {
 
 function PartyStart({ completedTopicIds }: { completedTopicIds: string[] }) {
   const { t } = useI18n();
+  // Home's "Get judged" button lands on /party?format=judged.
+  const judged = new URLSearchParams(window.location.search).get('format') === 'judged';
+  const preferred: RoomFormat = judged ? 'judged' : 'party';
+  const other: RoomFormat = judged ? 'party' : 'judged';
   const [nickname, setNickname] = useState(rememberedNickname);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -96,11 +100,11 @@ function PartyStart({ completedTopicIds }: { completedTopicIds: string[] }) {
     }
   };
 
-  const create = (e: FormEvent) => {
+  const create = (format: RoomFormat) => (e: FormEvent) => {
     e.preventDefault();
     void run(async () => {
       const name = cleanNickname(nickname);
-      const roomCode = await createRoom(name, completedTopicIds);
+      const roomCode = await createRoom(name, completedTopicIds, format);
       rememberNickname(name);
       navigate(`/party/${roomCode}`);
     });
@@ -121,8 +125,10 @@ function PartyStart({ completedTopicIds }: { completedTopicIds: string[] }) {
   return (
     <div className="space-y-8 pb-10">
       <header className="animate-fade-up">
-        <p className="eyebrow">{t.party.title}</p>
-        <h1 className="mt-3 text-balance text-5xl font-bold sm:text-6xl">{t.party.subtitle}</h1>
+        <p className="eyebrow">{judged ? t.party.judgedTitle : t.party.title}</p>
+        <h1 className="mt-3 text-balance text-5xl font-bold sm:text-6xl">
+          {judged ? t.party.judgedSubtitle : t.party.subtitle}
+        </h1>
       </header>
 
       <div>
@@ -144,12 +150,21 @@ function PartyStart({ completedTopicIds }: { completedTopicIds: string[] }) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card as="section" glow className="flex flex-col p-6 sm:p-8">
-          <Users className="h-7 w-7 text-lime" aria-hidden="true" />
-          <h2 className="mt-4 text-3xl font-bold">{t.party.createTitle}</h2>
-          <p className="mt-1 text-mute">{t.party.createHelp}</p>
-          <form onSubmit={create} className="mt-auto pt-6">
+          {judged ? (
+            <Gavel className="h-7 w-7 text-lime" aria-hidden="true" />
+          ) : (
+            <Users className="h-7 w-7 text-lime" aria-hidden="true" />
+          )}
+          <h2 className="mt-4 text-3xl font-bold">{judged ? t.party.createJudgedTitle : t.party.createTitle}</h2>
+          <p className="mt-1 text-mute">{judged ? t.party.createJudgedHelp : t.party.createHelp}</p>
+          <form onSubmit={create(preferred)} className="mt-auto pt-6">
             <Button type="submit" size="lg" disabled={busy} className="w-full">
               {t.party.create}
+            </Button>
+          </form>
+          <form onSubmit={create(other)} className="mt-2">
+            <Button type="submit" variant="ghost" size="sm" disabled={busy} className="w-full">
+              {judged ? t.party.createPartyInstead : t.party.createJudgedInstead}
             </Button>
           </form>
         </Card>

@@ -1,6 +1,6 @@
-import { Check, Copy, Lock, Share2, Unlock, X } from 'lucide-react';
+import { Check, Copy, Gavel, Lock, Mic, Share2, Unlock, X } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { kickPlayer, setLocked, setReady, updateSettings, type Room } from '../../api/party';
+import { kickPlayer, setLocked, setReady, setRole, updateSettings, type Room } from '../../api/party';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { CATEGORIES } from '../../data/topics';
@@ -13,9 +13,11 @@ export function Lobby({ ctx }: { ctx: PartyContext }) {
   const { t } = useI18n();
   const { state, myId, me, isHost, act, busy } = ctx;
   const { room, players } = state;
-  const others = players.filter((p) => p.userId !== room.hostId);
-  const everyoneReady = canStart(others.length ? players.map((p) => ({ id: p.userId, ready: p.ready || p.userId === room.hostId })) : []);
+  const lobbyPlayers = players.map((p) => ({ id: p.userId, ready: p.ready || p.userId === room.hostId, speaks: p.role !== 'judge' }));
+  const canStartNow = canStart(lobbyPlayers);
+  const canStartEarly = canStart(lobbyPlayers, true);
   const enoughPlayers = players.length >= MIN_PLAYERS;
+  const hasSpeaker = lobbyPlayers.some((p) => p.speaks);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -33,6 +35,12 @@ export function Lobby({ ctx }: { ctx: PartyContext }) {
                 <li key={p.userId} className="flex items-center justify-between gap-3 rounded-2xl border border-ink-600 bg-ink-900/60 px-4 py-3">
                   <PlayerName player={p} myId={myId} hostId={room.hostId} />
                   <span className="flex shrink-0 items-center gap-2">
+                    {p.role === 'judge' && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-ink-700 px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.12em] text-bone">
+                        <Gavel className="h-3 w-3" aria-hidden="true" />
+                        {t.party.judge}
+                      </span>
+                    )}
                     <span
                       className={`rounded-full px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.12em] ${
                         ready ? 'bg-lime/15 text-lime' : 'bg-ink-700 text-mute'
@@ -63,15 +71,40 @@ export function Lobby({ ctx }: { ctx: PartyContext }) {
       <div className="space-y-6">
         <Settings room={room} isHost={isHost} playerCount={players.length} ctx={ctx} />
 
+        {me && (
+          <Card as="section" className="p-6" aria-labelledby="role-heading">
+            <h2 id="role-heading" className="eyebrow mb-2">
+              {t.party.yourRole}
+            </h2>
+            <div className="grid grid-cols-2 gap-2">
+              {(['player', 'judge'] as const).map((role) => (
+                <Choice
+                  key={role}
+                  selected={me.role === role}
+                  disabled={busy}
+                  onClick={() => void act(() => setRole(room.id, role))}
+                  icon={role === 'player' ? <Mic className="h-4 w-4" aria-hidden="true" /> : <Gavel className="h-4 w-4" aria-hidden="true" />}
+                  title={role === 'player' ? t.party.roleSpeak : t.party.roleJudge}
+                  help={role === 'player' ? t.party.roleSpeakHelp : t.party.roleJudgeHelp}
+                />
+              ))}
+            </div>
+          </Card>
+        )}
+
         <div className="space-y-3">
           {isHost ? (
             <>
               {!enoughPlayers ? (
                 <p className="text-center text-mute">{t.party.needPlayers}</p>
-              ) : everyoneReady ? (
+              ) : !hasSpeaker ? (
+                <p className="text-center text-mute">{t.party.needSpeaker}</p>
+              ) : canStartNow ? (
                 <Button size="lg" className="w-full" disabled={busy} onClick={() => void startRound(ctx)}>
                   {t.party.start}
                 </Button>
+              ) : !canStartEarly ? (
+                <p className="text-center text-mute">{t.party.waitingForReady}</p>
               ) : (
                 <>
                   <Button size="lg" variant="secondary" className="w-full" disabled={busy} onClick={() => void startRound(ctx, true)}>
@@ -158,7 +191,13 @@ function ShareCard({ code }: { code: string }) {
 
 function Settings({ room, isHost, playerCount, ctx }: { room: Room; isHost: boolean; playerCount: number; ctx: PartyContext }) {
   const { t } = useI18n();
-  const current = { topicMode: room.topicMode, category: room.category, explainMinutes: room.explainMinutes, maxPlayers: room.maxPlayers };
+  const current = {
+    topicMode: room.topicMode,
+    format: room.format,
+    category: room.category,
+    explainMinutes: room.explainMinutes,
+    maxPlayers: room.maxPlayers,
+  };
   const change = (patch: Partial<typeof current>) => void ctx.act(() => updateSettings(room.id, { ...current, ...patch }));
   const disabled = !isHost || ctx.busy;
 
@@ -170,6 +209,21 @@ function Settings({ room, isHost, playerCount, ctx }: { room: Room; isHost: bool
         </h2>
         {!isHost && <p className="mt-1 text-sm text-mute">{t.party.hostControls}</p>}
       </div>
+
+      <Field label={t.party.format}>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {(['party', 'judged'] as const).map((format) => (
+            <Choice
+              key={format}
+              selected={room.format === format}
+              disabled={disabled}
+              onClick={() => change({ format })}
+              title={format === 'party' ? t.party.formatParty : t.party.formatJudged}
+              help={format === 'party' ? t.party.formatPartyHelp : t.party.formatJudgedHelp}
+            />
+          ))}
+        </div>
+      </Field>
 
       <Field label={t.party.topicMode}>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -248,12 +302,13 @@ function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; 
   );
 }
 
-function Choice({ selected, disabled, onClick, title, help }: {
+function Choice({ selected, disabled, onClick, title, help, icon }: {
   selected: boolean;
   disabled: boolean;
   onClick: () => void;
   title: string;
   help?: string;
+  icon?: ReactNode;
 }) {
   return (
     <button
@@ -265,7 +320,10 @@ function Choice({ selected, disabled, onClick, title, help }: {
         selected ? 'border-lime bg-lime/10 text-lime' : 'border-ink-500 bg-ink-700 text-bone enabled:hover:border-lime/50'
       } ${disabled && !selected ? 'opacity-60' : ''}`}
     >
-      <span className="block font-display font-bold">{title}</span>
+      <span className="flex items-center gap-2 font-display font-bold">
+        {icon}
+        {title}
+      </span>
       {help && <span className="mt-0.5 block text-xs text-mute">{help}</span>}
     </button>
   );

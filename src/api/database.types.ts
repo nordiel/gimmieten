@@ -91,14 +91,14 @@ isOneToOne: false
                   ]
                 },"rooms": {
                   Row: {
-                    "category": string,"code": string,"created_at": string,"current_turn": number,"explain_minutes": number,"host_id": string,"id": string,"last_activity_at": string,"locked": boolean,"max_players": number,"phase": string,"phase_ends_at": string | null,"phase_started_at": string,"ratings_count": number,"round": number,"speaking_order": (string)[],"topic_mode": string,"version": number
+                    "category": string,"code": string,"created_at": string,"current_turn": number,"explain_minutes": number,"format": string,"host_id": string,"id": string,"last_activity_at": string,"locked": boolean,"max_players": number,"phase": string,"phase_ends_at": string | null,"phase_started_at": string,"ratings_count": number,"round": number,"speaking_order": (string)[],"topic_mode": string,"version": number
                   }
                   ComputedFields: never
                   Insert: {
-                    "category"?: string,"code": string,"created_at"?: string,"current_turn"?: number,"explain_minutes"?: number,"host_id": string,"id"?: string,"last_activity_at"?: string,"locked"?: boolean,"max_players"?: number,"phase"?: string,"phase_ends_at"?: string | null,"phase_started_at"?: string,"ratings_count"?: number,"round"?: number,"speaking_order"?: (string)[],"topic_mode"?: string,"version"?: number
+                    "category"?: string,"code": string,"created_at"?: string,"current_turn"?: number,"explain_minutes"?: number,"format"?: string,"host_id": string,"id"?: string,"last_activity_at"?: string,"locked"?: boolean,"max_players"?: number,"phase"?: string,"phase_ends_at"?: string | null,"phase_started_at"?: string,"ratings_count"?: number,"round"?: number,"speaking_order"?: (string)[],"topic_mode"?: string,"version"?: number
                   }
                   Update: {
-                    "category"?: string,"code"?: string,"created_at"?: string,"current_turn"?: number,"explain_minutes"?: number,"host_id"?: string,"id"?: string,"last_activity_at"?: string,"locked"?: boolean,"max_players"?: number,"phase"?: string,"phase_ends_at"?: string | null,"phase_started_at"?: string,"ratings_count"?: number,"round"?: number,"speaking_order"?: (string)[],"topic_mode"?: string,"version"?: number
+                    "category"?: string,"code"?: string,"created_at"?: string,"current_turn"?: number,"explain_minutes"?: number,"format"?: string,"host_id"?: string,"id"?: string,"last_activity_at"?: string,"locked"?: boolean,"max_players"?: number,"phase"?: string,"phase_ends_at"?: string | null,"phase_started_at"?: string,"ratings_count"?: number,"round"?: number,"speaking_order"?: (string)[],"topic_mode"?: string,"version"?: number
                   }
                   Relationships: [
                     
@@ -127,7 +127,7 @@ isOneToOne: false
 { Args: { "p_room": string,"p_version": number }; Returns: boolean
                            },
 "create_room":
-{ Args: { "p_category"?: string,"p_completed"?: (string)[],"p_explain_minutes"?: number,"p_max_players"?: number,"p_nickname": string,"p_topic_mode"?: string }; Returns: string
+{ Args: { "p_category"?: string,"p_completed"?: (string)[],"p_explain_minutes"?: number,"p_format"?: string,"p_max_players"?: number,"p_nickname": string,"p_topic_mode"?: string }; Returns: string
                            },
 "finish_turn":
 { Args: { "p_room": string }; Returns: undefined
@@ -161,6 +161,9 @@ isOneToOne: false
 "set_ready":
 { Args: { "p_ready": boolean,"p_room": string }; Returns: undefined
                            },
+"set_role":
+{ Args: { "p_role": string,"p_room": string }; Returns: undefined
+                           },
 "skip_topic":
 { Args: { "p_room": string,"p_topic_id": string }; Returns: undefined
                            },
@@ -174,7 +177,7 @@ isOneToOne: false
 { Args: { "p_clarity": number,"p_confidence": number,"p_learned": number,"p_room": string }; Returns: undefined
                            },
 "update_settings":
-{ Args: { "p_category": string,"p_explain_minutes": number,"p_max_players": number,"p_room": string,"p_topic_mode": string }; Returns: undefined
+{ Args: { "p_category": string,"p_explain_minutes": number,"p_format"?: string,"p_max_players": number,"p_room": string,"p_topic_mode": string }; Returns: undefined
                            }
           }
           Enums: {

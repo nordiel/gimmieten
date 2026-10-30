@@ -1,5 +1,5 @@
 import type { CategoryId } from '../types';
-import type { PartyPhase, PartyRating, TopicMode } from '../lib/party';
+import type { PartyPhase, PartyRating, PartyRole, RoomFormat, TopicMode } from '../lib/party';
 import type { Json } from './database.types';
 import { getSupabase } from './supabase';
 
@@ -11,6 +11,7 @@ export interface Room {
   code: string;
   hostId: string;
   topicMode: TopicMode;
+  format: RoomFormat;
   category: CategoryId | 'all';
   explainMinutes: 1 | 2;
   maxPlayers: number;
@@ -33,7 +34,7 @@ export interface RoomPlayer {
   ready: boolean;
   done: boolean;
   skipped: boolean;
-  role: 'player' | 'spectator';
+  role: PartyRole;
   completedTopicIds: string[];
 }
 
@@ -106,6 +107,7 @@ export async function fetchRoomState(roomId: string, myId: string): Promise<Room
     code: r.code,
     hostId: r.host_id,
     topicMode: r.topic_mode === 'shared' ? 'shared' : 'own',
+    format: r.format === 'judged' ? 'judged' : 'party',
     category: r.category as CategoryId | 'all',
     explainMinutes: r.explain_minutes === 2 ? 2 : 1,
     maxPlayers: r.max_players,
@@ -126,7 +128,7 @@ export async function fetchRoomState(roomId: string, myId: string): Promise<Room
     ready: p.ready,
     done: p.done,
     skipped: p.skipped,
-    role: p.role === 'spectator' ? 'spectator' : 'player',
+    role: p.role === 'spectator' || p.role === 'judge' ? p.role : 'player',
     completedTopicIds: p.completed_topic_ids,
   }));
   const topicRows = check(topicsRes);
@@ -177,8 +179,10 @@ export async function measureClockOffset(): Promise<number> {
 
 // ---------- Lobby ----------
 
-export async function createRoom(nickname: string, completedTopicIds: string[]): Promise<string> {
-  return check(await getSupabase().rpc('create_room', { p_nickname: nickname, p_completed: completedTopicIds }));
+export async function createRoom(nickname: string, completedTopicIds: string[], format: RoomFormat = 'party'): Promise<string> {
+  return check(
+    await getSupabase().rpc('create_room', { p_nickname: nickname, p_completed: completedTopicIds, p_format: format }),
+  );
 }
 
 export async function peekRoom(code: string): Promise<RoomPeek | null> {
@@ -197,7 +201,7 @@ export async function setReady(roomId: string, ready: boolean): Promise<void> {
 
 export async function updateSettings(
   roomId: string,
-  settings: { topicMode: TopicMode; category: CategoryId | 'all'; explainMinutes: 1 | 2; maxPlayers: number },
+  settings: { topicMode: TopicMode; format: RoomFormat; category: CategoryId | 'all'; explainMinutes: 1 | 2; maxPlayers: number },
 ): Promise<void> {
   check(
     await getSupabase().rpc('update_settings', {
@@ -206,8 +210,14 @@ export async function updateSettings(
       p_category: settings.category,
       p_explain_minutes: settings.explainMinutes,
       p_max_players: settings.maxPlayers,
+      p_format: settings.format,
     }),
   );
+}
+
+/** Speak this round, or just judge. */
+export async function setRole(roomId: string, role: 'player' | 'judge'): Promise<void> {
+  check(await getSupabase().rpc('set_role', { p_room: roomId, p_role: role }));
 }
 
 export async function setLocked(roomId: string, locked: boolean): Promise<void> {

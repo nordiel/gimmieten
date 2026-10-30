@@ -196,3 +196,67 @@ describe('party mode on the server', () => {
     assert.equal(round1.length, 4);
   });
 });
+
+describe('get judged: one speaker, the rest judges', () => {
+  let host: Player, dee: Player, eli: Player;
+  let roomId: string;
+
+  before(async () => {
+    [host, dee, eli] = (await Promise.all(['Host', 'Dee', 'Eli'].map(guest))) as [Player, Player, Player];
+    const code = await ok(host.db.rpc('create_room', { p_nickname: 'Host', p_format: 'judged' }));
+    roomId = await ok(dee.db.rpc('join_room', { p_code: code, p_nickname: 'Dee' }));
+    await ok(eli.db.rpc('join_room', { p_code: code, p_nickname: 'Eli' }));
+  });
+
+  const roles = async () =>
+    Object.fromEntries(
+      (await ok(host.db.from('room_players').select('user_id, role').eq('room_id', roomId))).map((p) => [p.user_id, p.role]),
+    );
+
+  it('makes joiners judges, and switching format resets roles', async () => {
+    assert.deepEqual(await roles(), { [host.id]: 'player', [dee.id]: 'judge', [eli.id]: 'judge' });
+    const settings = { p_room: roomId, p_topic_mode: 'own', p_category: 'all', p_explain_minutes: 1, p_max_players: 6 };
+    await ok(host.db.rpc('update_settings', { ...settings, p_format: 'party' }));
+    assert.deepEqual(await roles(), { [host.id]: 'player', [dee.id]: 'player', [eli.id]: 'player' });
+    await ok(host.db.rpc('update_settings', { ...settings, p_format: 'judged' }));
+    assert.deepEqual(await roles(), { [host.id]: 'player', [dee.id]: 'judge', [eli.id]: 'judge' });
+  });
+
+  it('needs someone to speak', async () => {
+    await Promise.all([dee, eli].map((p) => ok(p.db.rpc('set_ready', { p_room: roomId, p_ready: true }))));
+    assert.equal(await failure(dee.db.rpc('set_role', { p_room: roomId, p_role: 'host' })), 'invalid_role');
+    await ok(host.db.rpc('set_role', { p_room: roomId, p_role: 'judge' }));
+    assert.equal(await failure(host.db.rpc('start_game', { p_room: roomId, p_topics: {} })), 'not_enough_players');
+    await ok(host.db.rpc('set_role', { p_room: roomId, p_role: 'player' }));
+  });
+
+  it('deals a topic only to the speaker and hides it from judges until the turn', async () => {
+    await ok(host.db.rpc('start_game', { p_room: roomId, p_topics: { [host.id]: science[0]! } }));
+    const dealt = await ok(host.db.from('room_topics').select('user_id').eq('room_id', roomId));
+    assert.deepEqual(dealt.map((t) => t.user_id), [host.id]);
+    const peek = await ok(dee.db.from('room_topics').select('user_id').eq('room_id', roomId));
+    assert.equal(peek.length, 0);
+    assert.equal(await failure(dee.db.rpc('skip_topic', { p_room: roomId, p_topic_id: science[1]! })), 'not_a_player');
+  });
+
+  it('skips the order draw for a lone speaker, then waits for every judge', async () => {
+    await ok(host.db.rpc('mark_done', { p_room: roomId }));
+    assert.equal((await room(host, roomId)).phase, 'research');
+    await ok(host.db.rpc('mark_done', { p_room: roomId }));
+    const r = await room(host, roomId);
+    assert.equal(r.phase, 'upnext');
+    assert.deepEqual(r.speaking_order, [host.id]);
+
+    await ok(host.db.rpc('start_turn', { p_room: roomId }));
+    await ok(host.db.rpc('finish_turn', { p_room: roomId }));
+    await ok(dee.db.rpc('submit_rating', { p_room: roomId, p_clarity: 4, p_confidence: 4, p_learned: 5 }));
+    await ok(host.db.rpc('submit_rating', { p_room: roomId, p_clarity: 3, p_confidence: 2, p_learned: 3 }));
+    assert.equal((await room(host, roomId)).phase, 'judging');
+    await ok(eli.db.rpc('submit_rating', { p_room: roomId, p_clarity: 5, p_confidence: 4, p_learned: 4 }));
+    assert.equal((await room(host, roomId)).phase, 'results');
+
+    const [row] = await ok(dee.db.rpc('round_scores', { p_room: roomId, p_round: 1 }));
+    assert.deepEqual([...row!.clarity], [4, 5]);
+    assert.equal(row!.self_confidence, 2);
+  });
+});
